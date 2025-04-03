@@ -7,7 +7,7 @@ import string
 
 app = Flask(__name__)
 
-# Download required NLTK data
+# Download required NLTK data (if not already downloaded)
 nltk.download('punkt')
 nltk.download('stopwords')
 
@@ -24,8 +24,8 @@ except Exception as e:
 
 def transform_text(text):
     """
-    Converts the input text to lower case, tokenizes it, removes non-alphanumeric tokens,
-    filters out stopwords and punctuation, and applies stemming.
+    Convert input text to lowercase, tokenize it, filter out non-alphanumeric tokens,
+    remove stopwords and punctuation, and apply stemming.
     """
     text = text.lower()
     tokens = nltk.word_tokenize(text)
@@ -39,7 +39,7 @@ def transform_text(text):
         if token not in stopwords.words('english') and token not in string.punctuation
     ]
     
-    # Apply stemming to each token
+    # Apply stemming
     stemmed_tokens = [ps.stem(token) for token in cleaned_tokens]
     
     return " ".join(stemmed_tokens)
@@ -47,17 +47,32 @@ def transform_text(text):
 def predict_spam(message):
     """
     Transforms the input message and predicts whether it is spam using the loaded model.
+    This updated version uses predict_proba (if available) to set a threshold.
     """
     try:
         transformed_sms = transform_text(message)
         vector_input = tfidf.transform([transformed_sms])
-        result = model.predict(vector_input)[0]
         
         # Debugging output
         print("DEBUG: Original message:", message)
         print("DEBUG: Transformed message:", transformed_sms)
         print("DEBUG: Vector input shape:", vector_input.shape)
-        print("DEBUG: Prediction:", result)
+        
+        # Use predict_proba if available for getting confidence scores.
+        if hasattr(model, "predict_proba"):
+            probabilities = model.predict_proba(vector_input)[0]
+            # Assuming class 1 corresponds to spam
+            spam_prob = probabilities[1]
+            print("DEBUG: Predicted probabilities:", probabilities)
+            print("DEBUG: Spam probability:", spam_prob)
+            
+            threshold = 0.5  # You can adjust this threshold as needed.
+            result = "spam" if spam_prob > threshold else "not spam"
+        else:
+            # Fallback: use the model's predict result directly.
+            pred = model.predict(vector_input)[0]
+            print("DEBUG: Prediction output:", pred)
+            result = "spam" if pred == 1 else "not spam"
         
         return result
     except Exception as e:
